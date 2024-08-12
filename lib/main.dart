@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:quickbill/ItemsList.dart';
-
-import 'HomePage.dart';
-
+import 'Pages/HomePage.dart';
+import 'Pages/BillGenerationPage.dart';
+import 'Pages/sample.dart';
 void main() {
   runApp(QuickBillApp());
 }
@@ -15,7 +14,13 @@ class QuickBillApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: ItemsListPage(),
+      home: HomePage(),
+      routes: {
+        '/shopManagement': (context) => ShopManagementPage(),
+        '/stockManagement': (context) => StockManagementPage(),
+        '/billGeneration': (context) => BillGenerationPage(),
+        '/salesRecords': (context) => SalesRecordsPage(),
+      },
     );
   }
 }

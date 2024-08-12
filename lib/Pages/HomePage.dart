@@ -27,7 +27,7 @@ class HomePage extends StatelessWidget {
               icon: Icons.store,
               text: 'Shop Management',
               onPressed: () {
-                // Navigate to Shop Management page
+                Navigator.pushNamed(context, '/shopManagement');
               },
             ),
             SizedBox(height: 16),
@@ -35,7 +35,7 @@ class HomePage extends StatelessWidget {
               icon: Icons.inventory,
               text: 'Stock Management',
               onPressed: () {
-                // Navigate to Stock Management page
+                Navigator.pushNamed(context, '/stockManagement');
               },
             ),
             SizedBox(height: 16),
@@ -43,7 +43,7 @@ class HomePage extends StatelessWidget {
               icon: Icons.receipt,
               text: 'Bill Generation',
               onPressed: () {
-                Navigator.pushNamed(context, '/items');// Navigate to Bill Generation page
+                Navigator.pushNamed(context, '/billGeneration');
               },
             ),
             SizedBox(height: 16),
@@ -51,7 +51,7 @@ class HomePage extends StatelessWidget {
               icon: Icons.analytics,
               text: 'Sales Records',
               onPressed: () {
-                // Navigate to Sales Records page
+                Navigator.pushNamed(context, '/salesRecords');
               },
             ),
           ],
