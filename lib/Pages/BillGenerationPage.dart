@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../Classes/Item.dart';
 import '../Widgets/ItemCard.dart';
 
-
 class BillGenerationPage extends StatefulWidget {
   @override
   _BillGenerationPageState createState() => _BillGenerationPageState();
@@ -13,9 +12,23 @@ class _BillGenerationPageState extends State<BillGenerationPage> {
     Item(name: 'Item 1', imageUrl: 'assets/images/bill.jpg', quantity: 10, price: 15.0),
     Item(name: 'Item 2', imageUrl: 'assets/images/bill.jpg', quantity: 5, price: 20.0),
     Item(name: 'Item 3', imageUrl: 'assets/images/bill.jpg', quantity: 8, price: 10.0),
+    Item(name: 'Item 1', imageUrl: 'assets/images/bill.jpg', quantity: 10, price: 15.0),
+    Item(name: 'Item 2', imageUrl: 'assets/images/bill.jpg', quantity: 5, price: 20.0),
+    Item(name: 'Item 3', imageUrl: 'assets/images/bill.jpg', quantity: 8, price: 10.0),
+    Item(name: 'Item 1', imageUrl: 'assets/images/bill.jpg', quantity: 10, price: 15.0),
+    Item(name: 'Item 2', imageUrl: 'assets/images/bill.jpg', quantity: 5, price: 20.0),
+    Item(name: 'Item 3', imageUrl: 'assets/images/bill.jpg', quantity: 8, price: 10.0),
+
   ];
 
   List<Item> cartItems = [];
+  List<Item> filteredItems = [];
+
+  @override
+  void initState() {
+    super.initState();
+    filteredItems = items;
+  }
 
   void addToCart(Item item) {
     setState(() {
@@ -33,28 +46,54 @@ class _BillGenerationPageState extends State<BillGenerationPage> {
     return cartItems.contains(item);
   }
 
+  void filterItems(String query) {
+    setState(() {
+      filteredItems = items
+          .where((item) => item.name.toLowerCase().contains(query.toLowerCase()))
+          .toList();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Bill Generation'),
       ),
-      body: ListView.builder(
-        itemCount: items.length,
-        itemBuilder: (context, index) {
-          final item = items[index];
-          final inCart = isItemInCart(item);
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              decoration: InputDecoration(
+                labelText: 'Search Items',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onChanged: filterItems,
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: filteredItems.length,
+              itemBuilder: (context, index) {
+                final item = filteredItems[index];
+                final inCart = isItemInCart(item);
 
-          // Create the button based on whether the item is in the cart
-          final button = ElevatedButton(
-            onPressed: inCart
-                ? () => removeFromCart(item)
-                : () => addToCart(item),
-            child: Text(inCart ? 'Remove from Cart' : 'Add to Cart'),
-          );
+                final button = ElevatedButton(
+                  onPressed: inCart
+                      ? () => removeFromCart(item)
+                      : () => addToCart(item),
+                  child: Text(inCart ? 'Remove from Cart' : 'Add to Cart'),
+                );
 
-          return ItemCard(item: item, trailingButton: button);
-        },
+                return ItemCard(item: item, trailingButton: button);
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: Stack(
         clipBehavior: Clip.none,
@@ -96,5 +135,3 @@ class _BillGenerationPageState extends State<BillGenerationPage> {
     );
   }
 }
-
-
