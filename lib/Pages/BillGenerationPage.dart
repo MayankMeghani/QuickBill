@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../Classes/Item.dart';
+import '../Models/Item.dart';
 import '../Widgets/ItemCard.dart';
 
 class BillGenerationPage extends StatefulWidget {
@@ -23,11 +23,16 @@ class _BillGenerationPageState extends State<BillGenerationPage> {
 
   List<Item> cartItems = [];
   List<Item> filteredItems = [];
+  bool isLoading = false;
 
   @override
   void initState() {
     super.initState();
+
+    isLoading = true;
     filteredItems = items;
+
+    isLoading = false;
   }
 
   void addToCart(Item item) {
@@ -76,7 +81,9 @@ class _BillGenerationPageState extends State<BillGenerationPage> {
             ),
           ),
           Expanded(
-            child: ListView.builder(
+          child: isLoading
+          ? Center(child: CircularProgressIndicator())
+              :ListView.builder(
               itemCount: filteredItems.length,
               itemBuilder: (context, index) {
                 final item = filteredItems[index];

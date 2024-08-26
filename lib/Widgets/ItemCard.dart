@@ -1,6 +1,6 @@
 
 import 'package:flutter/material.dart';
-import '../Classes/Item.dart';
+import '../Models/Item.dart';
 class ItemCard extends StatelessWidget {
   final Item item;
   final Widget trailingButton;
