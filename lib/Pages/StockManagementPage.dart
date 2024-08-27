@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import '../Models/Item.dart';
 import '../Widgets/ItemCard.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class StockManagementPage extends StatefulWidget {
   @override
@@ -22,17 +21,20 @@ class _StockManagementPageState extends State<StockManagementPage> {
     });
 
     try {
-      final response = await http.get(Uri.parse('https://jsonplaceholder.typicode.com/users'));
-      final data = jsonDecode(response.body) as List<dynamic>;
-        setState(() {
-          items = data.map((user) => Item(
-            name: user['name'],
-            imageUrl: 'assets/images/bill.jpg',
-            quantity: 1,
-            price: user['id'].toDouble(),
-          )).toList();
-          filteredItems = items;
-        });
+      final QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('items').get();
+      setState(() {
+        items = snapshot.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return Item(
+            id: doc.id,
+            name: data['name'] ?? '',
+            imageUrl: data['imageUrl'] ?? 'assets/images/bill.jpg',
+            quantity: data['quantity'] ?? 0,
+            price: (data['price'] ?? 0).toDouble(),
+          );
+        }).toList();
+        filteredItems = items;
+      });
     } catch (e) {
       setState(() {
         errorMessage = 'Error fetching items: $e';
@@ -50,14 +52,33 @@ class _StockManagementPageState extends State<StockManagementPage> {
     fetchItems();
   }
 
-  void addItem() async{
+  void addItem() async {
     final result = await Navigator.pushNamed(context, '/modify');
+
+    if (result != null && result is Map<String, dynamic>) {
+      try {
+        await FirebaseFirestore.instance.collection('items').add({
+          'name': result['name'],
+          'quantity': result['quantity'],
+          'price': result['price'],
+          'imageUrl': 'assets/images/bill.jpg', // You might want to allow image upload in your app
+        });
+
+        // Refresh the list after adding
+        await fetchItems();
+      } catch (e) {
+        print('Error adding item: $e');
+        // You might want to show an error message to the user here
+      }
+    }
   }
+
   void updateHandler(Item i) async {
     final result = await Navigator.pushNamed(
       context,
       '/modify',
       arguments: {
+        'id':i.id,
         'name': i.name,
         'quantity': i.quantity,
         'price': i.price
@@ -65,18 +86,18 @@ class _StockManagementPageState extends State<StockManagementPage> {
     );
 
     if (result != null && result is Map<String, dynamic>) {
-      setState(() {
-        int index = items.indexWhere((item) => item.name == i.name);
-        if (index != -1) {
-          items[index] = Item(
-            name: result['name'] as String,
-            imageUrl: i.imageUrl,
-            quantity: result['quantity'] as int,
-            price: result['price'] as double,
-          );
-          filterItems('');
-        }
-      });
+      try {
+        await FirebaseFirestore.instance.collection('items').doc(i.id).update({
+          'name': result['name'],
+          'quantity': result['quantity'],
+          'price': result['price'],
+        });
+
+        await fetchItems();
+      } catch (e) {
+        print('Error updating item: $e');
+        // You might want to show an error message to the user here
+      }
     }
   }
 

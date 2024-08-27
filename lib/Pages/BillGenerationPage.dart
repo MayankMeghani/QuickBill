@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../Models/Item.dart';
 import '../Widgets/ItemCard.dart';
+import 'package:http/http.dart' as http;
 
 class BillGenerationPage extends StatefulWidget {
   @override
@@ -8,31 +10,55 @@ class BillGenerationPage extends StatefulWidget {
 }
 
 class _BillGenerationPageState extends State<BillGenerationPage> {
-  List<Item> items = [
-    Item(name: 'Item 1', imageUrl: 'assets/images/bill.jpg', quantity: 10, price: 15.0),
-    Item(name: 'Item 2', imageUrl: 'assets/images/bill.jpg', quantity: 5, price: 20.0),
-    Item(name: 'Item 3', imageUrl: 'assets/images/bill.jpg', quantity: 8, price: 10.0),
-    Item(name: 'Item 1', imageUrl: 'assets/images/bill.jpg', quantity: 10, price: 15.0),
-    Item(name: 'Item 2', imageUrl: 'assets/images/bill.jpg', quantity: 5, price: 20.0),
-    Item(name: 'Item 3', imageUrl: 'assets/images/bill.jpg', quantity: 8, price: 10.0),
-    Item(name: 'Item 1', imageUrl: 'assets/images/bill.jpg', quantity: 10, price: 15.0),
-    Item(name: 'Item 2', imageUrl: 'assets/images/bill.jpg', quantity: 5, price: 20.0),
-    Item(name: 'Item 3', imageUrl: 'assets/images/bill.jpg', quantity: 8, price: 10.0),
-
-  ];
-
+  List<Item> items = [];
   List<Item> cartItems = [];
   List<Item> filteredItems = [];
   bool isLoading = false;
+  String errorMessage = '';
+
+  Future<void> fetchItems() async {
+    setState(() {
+      isLoading = true;
+      errorMessage = '';
+    });
+    try {
+      final response = await http.get(Uri.parse('https://jsonplaceholder.typicode.com/users'));
+
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as List<dynamic>;
+
+        setState(() {
+          items = data.map((user) =>
+              Item(
+                id: user['id'].toString(),
+                name: user['name'].toString(),
+                imageUrl: 'assets/images/bill.jpg',
+                quantity: 1,
+                price: (user['id'] as int).toDouble(),
+              )).toList();
+          filteredItems = items;
+        });
+      } else {
+        setState(() {
+          errorMessage = 'Failed to load items. Server responded with status code ${response.statusCode}.';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        errorMessage = 'Error fetching items: $e';
+      });
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-
-    isLoading = true;
-    filteredItems = items;
-
-    isLoading = false;
+    fetchItems();
   }
 
   void addToCart(Item item) {
