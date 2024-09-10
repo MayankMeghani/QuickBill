@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../Models/Item.dart';
 import '../Widgets/ItemCard.dart';
 import 'package:http/http.dart' as http;
+import 'Cart.dart';
 
 class BillGenerationPage extends StatefulWidget {
   @override
@@ -24,7 +25,6 @@ class _BillGenerationPageState extends State<BillGenerationPage> {
     try {
       final response = await http.get(Uri.parse('https://jsonplaceholder.typicode.com/users'));
 
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as List<dynamic>;
 
@@ -34,7 +34,7 @@ class _BillGenerationPageState extends State<BillGenerationPage> {
                 id: user['id'].toString(),
                 name: user['name'].toString(),
                 imageUrl: 'assets/images/bill.jpg',
-                quantity: 1,
+                quantity: 10,
                 price: (user['id'] as int).toDouble(),
               )).toList();
           filteredItems = items;
@@ -85,6 +85,18 @@ class _BillGenerationPageState extends State<BillGenerationPage> {
     });
   }
 
+  void _navigateToCart() async {
+     await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CartPage(cartItems: cartItems),
+      ),
+    );
+    setState(() {
+      cartItems = cartItems;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -107,9 +119,9 @@ class _BillGenerationPageState extends State<BillGenerationPage> {
             ),
           ),
           Expanded(
-          child: isLoading
-          ? Center(child: CircularProgressIndicator())
-              :ListView.builder(
+            child: isLoading
+                ? Center(child: CircularProgressIndicator())
+                : ListView.builder(
               itemCount: filteredItems.length,
               itemBuilder: (context, index) {
                 final item = filteredItems[index];
@@ -132,9 +144,7 @@ class _BillGenerationPageState extends State<BillGenerationPage> {
         clipBehavior: Clip.none,
         children: [
           FloatingActionButton(
-            onPressed: () {
-              // Handle navigation to cart page or display cart items
-            },
+            onPressed: _navigateToCart,
             child: Icon(Icons.shopping_cart),
             tooltip: 'Go to Cart',
           ),

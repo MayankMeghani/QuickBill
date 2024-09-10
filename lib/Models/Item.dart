@@ -1,10 +1,10 @@
-
 class Item {
-  final String id;
-  final String name;
-  final String imageUrl;
-  int quantity;
-  final double price;
+  String id;
+  String name;
+  String imageUrl;
+  int quantity; // available quantity
+  double price;
+  int selectedQty; // the fluctuating quantity for user selection
 
   Item({
     required this.id,
@@ -12,5 +12,6 @@ class Item {
     required this.imageUrl,
     required this.quantity,
     required this.price,
+    this.selectedQty = 1, // initial selected quantity
   });
 }
