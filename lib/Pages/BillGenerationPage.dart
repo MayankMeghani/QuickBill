@@ -1,9 +1,11 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../Models/Item.dart';
+import '../Providers/ShopProvider.dart';
 import '../Widgets/ItemCard.dart';
-import 'package:http/http.dart' as http;
 import 'Cart.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../Models/Cart.dart'; // Import the CartModel
 
 class BillGenerationPage extends StatefulWidget {
   @override
@@ -12,38 +14,36 @@ class BillGenerationPage extends StatefulWidget {
 
 class _BillGenerationPageState extends State<BillGenerationPage> {
   List<Item> items = [];
-  List<Item> cartItems = [];
   List<Item> filteredItems = [];
   bool isLoading = false;
   String errorMessage = '';
+  bool isNameAsc = true;
+  String? shopId; // Property to store the shopId
 
   Future<void> fetchItems() async {
     setState(() {
       isLoading = true;
       errorMessage = '';
     });
+
     try {
-      final response = await http.get(Uri.parse('https://jsonplaceholder.typicode.com/users'));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as List<dynamic>;
-
-        setState(() {
-          items = data.map((user) =>
-              Item(
-                id: user['id'].toString(),
-                name: user['name'].toString(),
-                imageUrl: 'assets/images/bill.jpg',
-                quantity: 10,
-                price: (user['id'] as int).toDouble(),
-              )).toList();
-          filteredItems = items;
-        });
-      } else {
-        setState(() {
-          errorMessage = 'Failed to load items. Server responded with status code ${response.statusCode}.';
-        });
-      }
+      final QuerySnapshot snapshot =
+      await FirebaseFirestore.instance.collection('items')
+          .where('shopId', isEqualTo: shopId).get();
+      setState(() {
+        items = snapshot.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return Item(
+            id: doc.id,
+            name: data['name'],
+            imageUrl: data['imageUrl'] ?? 'assets/images/bill.jpg',
+            quantity: data['quantity'],
+            price: (data['price']).toDouble(),
+          );
+        }).toList();
+        filteredItems = items;
+        sortItemsByName();
+      });
     } catch (e) {
       setState(() {
         errorMessage = 'Error fetching items: $e';
@@ -58,23 +58,9 @@ class _BillGenerationPageState extends State<BillGenerationPage> {
   @override
   void initState() {
     super.initState();
+    final shopProvider = Provider.of<ShopProvider>(context, listen: false);
+    shopId = shopProvider.shopData?['userId'];
     fetchItems();
-  }
-
-  void addToCart(Item item) {
-    setState(() {
-      cartItems.add(item);
-    });
-  }
-
-  void removeFromCart(Item item) {
-    setState(() {
-      cartItems.remove(item);
-    });
-  }
-
-  bool isItemInCart(Item item) {
-    return cartItems.contains(item);
   }
 
   void filterItems(String query) {
@@ -85,23 +71,47 @@ class _BillGenerationPageState extends State<BillGenerationPage> {
     });
   }
 
+  // Sorting function based on the current sorting order
+  void sortItemsByName() {
+    setState(() {
+      if (isNameAsc) {
+        filteredItems.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      } else {
+        filteredItems.sort((a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
+      }
+    });
+  }
+
+  // Navigate to Cart Page
   void _navigateToCart() async {
-     await Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CartPage(cartItems: cartItems),
+        builder: (context) => CartPage(),
       ),
     );
-    setState(() {
-      cartItems = cartItems;
-    });
+    fetchItems();
   }
 
   @override
   Widget build(BuildContext context) {
+    final cartModel = Provider.of<Cart>(context);
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Bill Generation'),
+        actions: [
+          IconButton(
+            icon: Icon(isNameAsc ? Icons.arrow_upward : Icons.arrow_downward),
+            onPressed: () {
+              setState(() {
+                isNameAsc = !isNameAsc; // Toggle sorting order
+                sortItemsByName(); // Sort items after toggling
+              });
+            },
+            tooltip: 'Sort by Name',
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -119,23 +129,26 @@ class _BillGenerationPageState extends State<BillGenerationPage> {
             ),
           ),
           Expanded(
-            child: isLoading
-                ? Center(child: CircularProgressIndicator())
-                : ListView.builder(
-              itemCount: filteredItems.length,
-              itemBuilder: (context, index) {
-                final item = filteredItems[index];
-                final inCart = isItemInCart(item);
+            child: RefreshIndicator(
+              onRefresh: fetchItems,
+              child: isLoading
+                  ? Center(child: CircularProgressIndicator())
+                  : ListView.builder(
+                itemCount: filteredItems.length,
+                itemBuilder: (context, index) {
+                  final item = filteredItems[index];
+                  final inCart = cartModel.isItemInCart(item);
 
-                final button = ElevatedButton(
-                  onPressed: inCart
-                      ? () => removeFromCart(item)
-                      : () => addToCart(item),
-                  child: Text(inCart ? 'Remove from Cart' : 'Add to Cart'),
-                );
+                  final button = ElevatedButton(
+                    onPressed: inCart
+                        ? () => cartModel.removeItem(item)
+                        : () => cartModel.addItem(item),
+                    child: Text(inCart ? 'Remove from Cart' : 'Add to Cart'),
+                  );
 
-                return ItemCard(item: item, trailingButton: button);
-              },
+                  return ItemCard(item: item, trailingButton: button);
+                },
+              ),
             ),
           ),
         ],
@@ -148,7 +161,7 @@ class _BillGenerationPageState extends State<BillGenerationPage> {
             child: Icon(Icons.shopping_cart),
             tooltip: 'Go to Cart',
           ),
-          if (cartItems.isNotEmpty)
+          if (cartModel.cartItems.isNotEmpty)
             Positioned(
               top: -10,
               right: -10,
@@ -163,7 +176,7 @@ class _BillGenerationPageState extends State<BillGenerationPage> {
                   minHeight: 24,
                 ),
                 child: Text(
-                  '${cartItems.length}',
+                  '${cartModel.cartItems.length}',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 12,

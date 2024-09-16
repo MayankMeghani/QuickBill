@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+
+import '../Providers/ShopProvider.dart';
 
 class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final FirebaseAuth _auth = FirebaseAuth.instance;
+    final shopProvider = Provider.of<ShopProvider>(context);
+    final bool isProfileComplete = shopProvider.shopData?['isProfileComplete'] ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -33,43 +38,61 @@ class HomePage extends StatelessWidget {
             Image.asset(
               'assets/images/bill.jpg',
               width: 500,
-              height: 175, // Adjust the height as needed
+              height: 175,
             ),
             HomePageButton(
               icon: Icons.store,
               text: 'Shop Management',
-              onPressed: () {
-                Navigator.pushNamed(context, '/shopManagement');
-              },
+              onPressed: () => Navigator.pushNamed(context, '/shopManagement'),
+              isHighlighted: !isProfileComplete,
             ),
             SizedBox(height: 16),
             HomePageButton(
               icon: Icons.inventory,
               text: 'Stock Management',
-              onPressed: () {
-                Navigator.pushNamed(context, '/stockManagement');
-              },
+              onPressed: () => _navigateTo(context, '/stockManagement', isProfileComplete),
             ),
             SizedBox(height: 16),
             HomePageButton(
               icon: Icons.receipt,
               text: 'Bill Generation',
-              onPressed: () {
-                Navigator.pushNamed(context, '/billGeneration');
-              },
+              onPressed: () => _navigateTo(context, '/billGeneration', isProfileComplete),
             ),
             SizedBox(height: 16),
             HomePageButton(
               icon: Icons.analytics,
-              text: 'Sales Records',
-              onPressed: () {
-                Navigator.pushNamed(context, '/salesRecords');
-              },
+              text: 'Sales Record',
+              onPressed: () => _navigateTo(context, '/salesRecords', isProfileComplete),
             ),
           ],
         ),
       ),
     );
+  }
+
+  void _navigateTo(BuildContext context, String route, bool isProfileComplete) {
+    if (!isProfileComplete) {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('Profile Incomplete'),
+            content: Text('Please complete your shop profile before proceeding.'),
+            actions: <Widget>[
+              TextButton(
+                child: Text('OK'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.pushNamed(context, '/shopManagement');
+                },
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      Navigator.pushNamed(context, route);
+    }
   }
 }
 
@@ -77,11 +100,13 @@ class HomePageButton extends StatelessWidget {
   final IconData icon;
   final String text;
   final VoidCallback onPressed;
+  final bool isHighlighted;
 
   HomePageButton({
     required this.icon,
     required this.text,
     required this.onPressed,
+    this.isHighlighted = false,
   });
 
   @override
@@ -89,7 +114,7 @@ class HomePageButton extends StatelessWidget {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
         padding: EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-        backgroundColor: Colors.blue,
+        backgroundColor: isHighlighted ? Colors.red : Colors.blue,
       ),
       onPressed: onPressed,
       child: Row(
@@ -101,6 +126,11 @@ class HomePageButton extends StatelessWidget {
             text,
             style: TextStyle(fontSize: 18),
           ),
+          if (isHighlighted)
+            Padding(
+              padding: EdgeInsets.only(left: 10),
+              child: Icon(Icons.warning, color: Colors.yellow),
+            ),
         ],
       ),
     );

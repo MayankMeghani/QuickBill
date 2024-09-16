@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -8,6 +9,7 @@ class SignUpPage extends StatefulWidget {
 
 class _SignUpPageState extends State<SignUpPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
@@ -42,8 +44,8 @@ class _SignUpPageState extends State<SignUpPage> {
         email: _emailController.text,
         password: _passwordController.text,
       );
+      await _createInitialShopDocument(userCredential.user!.uid, _emailController.text);
 
-      // Navigate to home page and clear all previous routes
       Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
     } on FirebaseAuthException catch (e) {
       setState(() {
@@ -67,7 +69,13 @@ class _SignUpPageState extends State<SignUpPage> {
       });
     }
   }
-
+  Future<void> _createInitialShopDocument(String userId, String email) async {
+    await _firestore.collection('shops').doc(userId).set({
+      'userId': userId,
+      'email': email,
+      'isProfileComplete': false,
+    });
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(

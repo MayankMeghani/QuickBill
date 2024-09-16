@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../Models/Item.dart';
+import '../Providers/ShopProvider.dart';
 import '../Widgets/ItemCard.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -13,6 +15,8 @@ class _StockManagementPageState extends State<StockManagementPage> {
   List<Item> filteredItems = [];
   bool isLoading = false;
   String errorMessage = '';
+  bool isQuantityAsc = true; // State variable to track sorting order for quantity
+  String? shopId; // Property to store the shopId
 
   Future<void> fetchItems() async {
     setState(() {
@@ -20,8 +24,20 @@ class _StockManagementPageState extends State<StockManagementPage> {
       errorMessage = '';
     });
 
+    if (shopId == null) {
+      setState(() {
+        errorMessage = 'Shop ID not found. Please try again later.';
+        isLoading = false;
+      });
+      return;
+    }
+
     try {
-      final QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('items').get();
+      final QuerySnapshot snapshot = await FirebaseFirestore.instance
+          .collection('items')
+          .where('shopId', isEqualTo: shopId)
+          .get();
+
       setState(() {
         items = snapshot.docs.map((doc) {
           final data = doc.data() as Map<String, dynamic>;
@@ -34,6 +50,7 @@ class _StockManagementPageState extends State<StockManagementPage> {
           );
         }).toList();
         filteredItems = items;
+        sortItemsByQuantity(); // Sort items by quantity when loaded
       });
     } catch (e) {
       setState(() {
@@ -49,28 +66,9 @@ class _StockManagementPageState extends State<StockManagementPage> {
   @override
   void initState() {
     super.initState();
+    final shopProvider = Provider.of<ShopProvider>(context, listen: false);
+    shopId = shopProvider.shopData?['userId'];
     fetchItems();
-  }
-
-  void addItem() async {
-    final result = await Navigator.pushNamed(context, '/modify');
-
-    if (result != null && result is Map<String, dynamic>) {
-      try {
-        await FirebaseFirestore.instance.collection('items').add({
-          'name': result['name'],
-          'quantity': result['quantity'],
-          'price': result['price'],
-          'imageUrl': 'assets/images/bill.jpg', // You might want to allow image upload in your app
-        });
-
-        // Refresh the list after adding
-        await fetchItems();
-      } catch (e) {
-        print('Error adding item: $e');
-        // You might want to show an error message to the user here
-      }
-    }
   }
 
   void updateHandler(Item i) async {
@@ -78,27 +76,19 @@ class _StockManagementPageState extends State<StockManagementPage> {
       context,
       '/modify',
       arguments: {
-        'id':i.id,
+        'id': i.id,
         'name': i.name,
         'quantity': i.quantity,
-        'price': i.price
+        'price': i.price,
+        'imageUrl': i.imageUrl
       },
     );
+        await fetchItems(); // Refresh the list after updating
+  }
 
-    if (result != null && result is Map<String, dynamic>) {
-      try {
-        await FirebaseFirestore.instance.collection('items').doc(i.id).update({
-          'name': result['name'],
-          'quantity': result['quantity'],
-          'price': result['price'],
-        });
-
-        await fetchItems();
-      } catch (e) {
-        print('Error updating item: $e');
-        // You might want to show an error message to the user here
-      }
-    }
+  void addHandler() async{
+    final result = await Navigator.pushNamed(context, '/modify');
+      await fetchItems(); // Refresh the list after adding the item
   }
 
   void filterItems(String query) {
@@ -109,11 +99,34 @@ class _StockManagementPageState extends State<StockManagementPage> {
     });
   }
 
+  // Sorting function based on the current sorting order for quantity
+  void sortItemsByQuantity() {
+    setState(() {
+      if (isQuantityAsc) {
+        filteredItems.sort((a, b) => a.quantity.compareTo(b.quantity));
+      } else {
+        filteredItems.sort((a, b) => b.quantity.compareTo(a.quantity));
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Stock Management'),
+        actions: [
+          IconButton(
+            icon: Icon(isQuantityAsc ? Icons.arrow_upward : Icons.arrow_downward),
+            onPressed: () {
+              setState(() {
+                isQuantityAsc = !isQuantityAsc; // Toggle sorting order
+                sortItemsByQuantity(); // Sort items after toggling
+              });
+            },
+            tooltip: 'Sort by Quantity',
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -131,49 +144,47 @@ class _StockManagementPageState extends State<StockManagementPage> {
             ),
           ),
           Expanded(
-            child: isLoading
-                ? Center(child: CircularProgressIndicator())
-                : errorMessage.isNotEmpty
-                ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    errorMessage,
-                    style: TextStyle(color: Colors.red),
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: fetchItems,
-                    child: Text('Retry'),
-                  ),
-                ],
+            child: RefreshIndicator(
+              onRefresh: fetchItems,  // Trigger fetch when pulled down
+              child: isLoading
+                  ? Center(child: CircularProgressIndicator())
+                  : errorMessage.isNotEmpty
+                  ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      errorMessage,
+                      style: TextStyle(color: Colors.red),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: fetchItems,
+                      child: Text('Retry'),
+                    ),
+                  ],
+                ),
+              )
+                  : ListView.builder(
+                itemCount: filteredItems.length,
+                itemBuilder: (context, index) {
+                  final item = filteredItems[index];
+                  final button = ElevatedButton(
+                    onPressed: () => updateHandler(item),
+                    child: Text('Modify'),
+                  );
+                  return ItemCard(item: item, trailingButton: button);
+                },
               ),
-            )
-                : ListView.builder(
-              itemCount: filteredItems.length,
-              itemBuilder: (context, index) {
-                final item = filteredItems[index];
-                final button = ElevatedButton(
-                  onPressed: () => updateHandler(item),
-                  child: Text('Modify'),
-                );
-                return ItemCard(item: item, trailingButton: button);
-              },
             ),
           ),
         ],
       ),
-      floatingActionButton: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          FloatingActionButton(
-            onPressed: () => addItem(),
-            child: Icon(Icons.add),
-            tooltip: 'Add item',
-          ),
-        ],
+      floatingActionButton: FloatingActionButton(
+        onPressed:()=> addHandler(),
+        child: Icon(Icons.add),
+        tooltip: 'Add item',
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );

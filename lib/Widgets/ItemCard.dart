@@ -1,24 +1,39 @@
-
 import 'package:flutter/material.dart';
 import '../Models/Item.dart';
+
 class ItemCard extends StatelessWidget {
   final Item item;
   final Widget trailingButton;
 
-  const ItemCard({
-    Key? key,
-    required this.item,
-    required this.trailingButton,
-  }) : super(key: key);
+  const ItemCard({Key? key, required this.item, required this.trailingButton}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Card(
+      margin: EdgeInsets.all(8.0),
       child: ListTile(
-        leading: Image.asset(item.imageUrl, width: 50, height: 50),
+        leading: Container(
+          width: 50,
+          height: 50,
+          child: item.imageUrl.startsWith('http')
+              ? Image.network(
+            item.imageUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Image.asset(
+                'assets/images/bill.jpg',
+                fit: BoxFit.cover,
+              );
+            },
+          )
+              : Image.asset(
+            'assets/images/bill.jpg',
+            fit: BoxFit.cover,
+          ),
+        ),
         title: Text(item.name),
-        subtitle: Text('Qty: ${item.quantity} \n Price: ₹${item.price}'),
-        trailing: trailingButton,  // Use the passed button
+        subtitle: Text('Quantity: ${item.quantity}, Price: \$${item.price.toStringAsFixed(2)}'),
+        trailing: trailingButton,
       ),
     );
   }

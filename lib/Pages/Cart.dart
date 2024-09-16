@@ -1,78 +1,223 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import '../Models/Item.dart';
+import 'package:provider/provider.dart';
+import 'package:printing/printing.dart';
+import '../Models/Cart.dart';
+import '../Providers/ShopProvider.dart';
 import '../Widgets/ItemCard.dart';
+import '../api/billGenrerater.dart';
 
-class CartPage extends StatefulWidget {
-  final List<Item> cartItems;
 
-  CartPage({required this.cartItems});
+class CartPage extends StatelessWidget {
+  Future<void> saveBillToDatabase(BuildContext context, String customerName, String mobileNumber) async {
+    final cartModel = Provider.of<Cart>(context, listen: false);
+    final shopProvider = Provider.of<ShopProvider>(context, listen: false);
+    final cartItems = cartModel.cartItems;
+    final shopId = shopProvider.shopData?['userId'];
 
-  @override
-  _CartPageState createState() => _CartPageState();
-}
+    try {
+      final billData = {
+        'customerName': customerName,
+        'mobileNumber': mobileNumber,
+        'items': cartItems.map((item) => {
+          'itemId': item.id,
+          'name': item.name,
+          'price': item.price,
+          'quantity': item.selectedQty,
+        }).toList(),
+        'totalPrice': cartModel.getTotalPrice(),
+        'transactionDate': Timestamp.now(),
+        'shopId': shopId,
+      };
 
-class _CartPageState extends State<CartPage> {
-  String errorMessage = '';
+      await FirebaseFirestore.instance.collection('sales').add(billData);
 
-  double getTotalPrice() {
-    return widget.cartItems.fold(
-      0,
-      (total, item) => total + (item.price * item.selectedQty),
-    );
-  }
-
-  void updateItemSelectedQty(Item item, int newQty) {
-    setState(() {
-      if (newQty > item.quantity) {
-        errorMessage = 'Selected quantity has exceeded available stock for ${item.name}!';
-      } else if (newQty <= 0) {
-        widget.cartItems.remove(item);
-      } else {
-        errorMessage = '';
-        item.selectedQty = newQty;
+      for (var item in cartItems) {
+        final newQty = item.quantity - item.selectedQty;
+        await FirebaseFirestore.instance.collection('items').doc(item.id).update({
+          'quantity': newQty,
+        });
       }
-    });
-  }
 
-  @override
-  void initState() {
-    super.initState();
-    for (var item in widget.cartItems) {
-      item.selectedQty = 1;
+    } catch (e) {
+      print('Error saving bill: $e');
     }
   }
 
+  Future<void> generateAndPreviewPdf(BuildContext context, String customerName, String mobileNumber) async {
+    // Generate the PDF document
+    final pdf = await generatePdf(context, customerName, mobileNumber);
+
+    // Navigate to a PDF preview screen
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: Text('PDF Preview'),
+            leading: IconButton(
+              icon: Icon(Icons.arrow_back),
+              onPressed: () {
+                Navigator.pop(context);
+              },
+            ),
+          ),
+          body: Center(
+
+            child: PdfPreview(
+              build: (format) => pdf.save(),
+              canChangeOrientation: false,
+          ),
+          ),
+        ),
+      )
+    );
+  }
+
+  void generateBill(BuildContext context) {
+    TextEditingController nameController = TextEditingController();
+    TextEditingController mobileController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Customer Info'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: InputDecoration(labelText: 'Customer Name (Optional)'),
+              ),
+              TextField(
+                controller: mobileController,
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(labelText: 'Mobile Number (Optional)'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: Text('Cancel'),
+                ),
+
+              Expanded( // Wrap with Expanded
+                child: TextButton(
+                  onPressed: () async {
+                    String customerName = nameController.text.trim();
+                    String mobileNumber = mobileController.text.trim();
+
+                    if (customerName.isEmpty) {
+                      customerName = 'unknown';
+                    }
+
+                    await saveBillToDatabase(context, customerName, mobileNumber);
+                    final cartModel = Provider.of<Cart>(context, listen: false);
+                    cartModel.clearCart();
+                    Navigator.pop(context);
+
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: Text('Bill Saved'),
+                        content: Text('Your bill has been saved to the database.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                            child: Text('OK'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  child: Text('Save Bill'),
+                ),
+              ),
+              Expanded( // Wrap with Expanded
+                child: TextButton(
+                  onPressed: () async {
+                    String customerName = nameController.text.trim();
+                    String mobileNumber = mobileController.text.trim();
+
+                    if (customerName.isEmpty) {
+                      customerName = 'unknown';
+                    }
+
+
+                    await saveBillToDatabase(context, customerName, mobileNumber);
+
+                    await generateAndPreviewPdf(context, customerName, mobileNumber);
+
+                    final cartModel = Provider.of<Cart>(context, listen: false);
+                    cartModel.clearCart();
+
+                    Navigator.pop(context);
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: Text('Bill Saved'),
+                        content: Text('Your bill has been saved to the database.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                            child: Text('OK'),
+                          ),
+                        ],
+                      ),
+                    );
+
+
+                  },
+                  child: Text('Generate pdf'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+
+
   @override
   Widget build(BuildContext context) {
+    final cartModel = Provider.of<Cart>(context);
+    final cartItems = cartModel.cartItems;
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Your Cart'),
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context, widget.cartItems);
+              Navigator.pop(context, cartItems);
             },
             child: Text('Done', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
-      body: widget.cartItems.isEmpty
+      body: cartItems.isEmpty
           ? Center(child: Text('Your cart is empty'))
           : Column(
         children: [
-          if (errorMessage.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text(
-                errorMessage,
-                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-              ),
-            ),
           Expanded(
             child: ListView.builder(
-              itemCount: widget.cartItems.length,
+              itemCount: cartItems.length,
               itemBuilder: (context, index) {
-                final item = widget.cartItems[index];
+                final item = cartItems[index];
 
                 final button = Row(
                   mainAxisSize: MainAxisSize.min,
@@ -80,7 +225,9 @@ class _CartPageState extends State<CartPage> {
                     IconButton(
                       icon: Icon(Icons.remove),
                       onPressed: () {
-                        updateItemSelectedQty(item, item.selectedQty - 1);
+                        if (item.selectedQty > 0) {
+                          cartModel.updateItemQty(item, item.selectedQty - 1);
+                        }
                       },
                     ),
                     Text('${item.selectedQty}'),
@@ -88,11 +235,7 @@ class _CartPageState extends State<CartPage> {
                       icon: Icon(Icons.add),
                       onPressed: () {
                         if (item.selectedQty < item.quantity) {
-                          updateItemSelectedQty(item, item.selectedQty + 1);
-                        } else {
-                          setState(() {
-                            errorMessage = 'Selected quantity has exceeded available stock for ${item.name}!';
-                          });
+                          cartModel.updateItemQty(item, item.selectedQty + 1);
                         }
                       },
                     ),
@@ -111,7 +254,7 @@ class _CartPageState extends State<CartPage> {
             child: Column(
               children: [
                 Text(
-                  'Total: ₹${getTotalPrice().toStringAsFixed(2)}',
+                  'Total: ₹${cartModel.getTotalPrice().toStringAsFixed(2)}',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -120,22 +263,7 @@ class _CartPageState extends State<CartPage> {
                 SizedBox(height: 10),
                 ElevatedButton(
                   onPressed: () {
-                    // Handle bill generation logic here
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: Text('Bill Generated'),
-                        content: Text('Your bill total is ₹${getTotalPrice().toStringAsFixed(2)}'),
-                        actions: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                            },
-                            child: Text('OK'),
-                          ),
-                        ],
-                      ),
-                    );
+                    generateBill(context);
                   },
                   child: Text('Generate Bill'),
                 ),
