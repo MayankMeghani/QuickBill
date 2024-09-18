@@ -2,13 +2,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:printing/printing.dart';
-import '../Models/Cart.dart';
+import '../Providers/CartProvide.dart';
 import '../Providers/ShopProvider.dart';
 import '../Widgets/ItemCard.dart';
 import '../api/billGenrerater.dart';
 
 
 class CartPage extends StatelessWidget {
+
   Future<void> saveBillToDatabase(BuildContext context, String customerName, String mobileNumber, String gstNumber) async {
     final cartModel = Provider.of<Cart>(context, listen: false);
     final shopProvider = Provider.of<ShopProvider>(context, listen: false);
@@ -24,7 +25,7 @@ class CartPage extends StatelessWidget {
           'itemId': item.id,
           'name': item.name,
           'price': item.price,
-          'quantity': item.selectedQty,
+          'quantity': item.purchaseQty,
         }).toList(),
         'totalPrice': cartModel.getTotalPrice(),
         'transactionDate': Timestamp.now(),
@@ -34,7 +35,7 @@ class CartPage extends StatelessWidget {
       await FirebaseFirestore.instance.collection('sales').add(billData);
 
       for (var item in cartItems) {
-        final newQty = item.quantity - item.selectedQty;
+        final newQty = item.quantity - item.purchaseQty;
         await FirebaseFirestore.instance.collection('items').doc(item.id).update({
           'quantity': newQty,
         });
@@ -46,12 +47,10 @@ class CartPage extends StatelessWidget {
   }
 
   Future<void> generateAndPreviewPdf(BuildContext context, String customerName, String mobileNumber, String gstNumber) async {
-    // Generate the PDF document
     final shopDataProvider = Provider.of<ShopProvider>(context,listen: false);
     final cartModel = Provider.of<Cart>(context, listen: false);
     final pdf = await generatePdf(context, customerName, mobileNumber,gstNumber,shopDataProvider.shopData,cartModel.cartItems);
 
-    // Navigate to a PDF preview screen
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -115,7 +114,7 @@ class CartPage extends StatelessWidget {
                   child: Text('Cancel'),
                 ),
 
-              Expanded( // Wrap with Expanded
+              Expanded(
                 child: TextButton(
                   onPressed: () async {
                     String customerName = nameController.text.trim();
@@ -125,6 +124,9 @@ class CartPage extends StatelessWidget {
                       customerName = 'unknown';
                     }
 
+                    if(mobileNumber.isEmpty){
+                      mobileNumber = 'N/A';
+                    }
                     if(gstNumber.isEmpty){
                       gstNumber = 'N/A';
                     }
@@ -238,17 +240,17 @@ class CartPage extends StatelessWidget {
                     IconButton(
                       icon: Icon(Icons.remove),
                       onPressed: () {
-                        if (item.selectedQty > 0) {
-                          cartModel.updateItemQty(item, item.selectedQty - 1);
+                        if (item.purchaseQty > 0) {
+                          cartModel.updateItemQty(item, item.purchaseQty - 1);
                         }
                       },
                     ),
-                    Text('${item.selectedQty}'),
+                    Text('${item.purchaseQty}'),
                     IconButton(
                       icon: Icon(Icons.add),
                       onPressed: () {
-                        if (item.selectedQty < item.quantity) {
-                          cartModel.updateItemQty(item, item.selectedQty + 1);
+                        if (item.purchaseQty < item.quantity) {
+                          cartModel.updateItemQty(item, item.purchaseQty + 1);
                         }
                       },
                     ),

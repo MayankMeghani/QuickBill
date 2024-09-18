@@ -29,7 +29,6 @@ class _LoginPageState extends State<LoginPage> {
     _checkBiometrics();
   }
 
-  // Check if biometric authentication is available
   Future<void> _checkBiometrics() async {
     bool canCheckBiometrics = await _localAuth.canCheckBiometrics;
     setState(() {
@@ -37,7 +36,6 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
-  // Method to authenticate using biometrics
   Future<void> _authenticateWithBiometrics() async {
     try {
       bool Authenticated =await _authService.authenticateWithBiometrics();

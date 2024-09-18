@@ -9,22 +9,20 @@ Future<pw.Document> generatePdf(
     String gstNumber,
     Map<String, dynamic>? shopData,
     List<Item> items,
+
     ) async {
   final pdf = pw.Document();
 
-  // Calculate total amount
   final totalAmount = items.fold<double>(
     0.0,
-        (sum, item) => sum + (item.price * item.quantity),
+        (sum, item) => sum + (item.price * item.purchaseQty),
   );
 
-  // Add a page with the complete bill receipt
   pdf.addPage(
     pw.Page(
       build: (pw.Context context) => pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          // Shop Information
           pw.Text('Shop Information', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
           pw.SizedBox(height: 10),
           pw.Text('Shop Name: ${shopData?['name'] ?? 'Shop Name'}'),
@@ -35,7 +33,6 @@ Future<pw.Document> generatePdf(
           pw.Text('GST No: ${shopData?['gstNo'] ?? 'N/A'}'),
           pw.SizedBox(height: 20),
 
-          // Customer Information
           pw.Text('Customer Information', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
           pw.SizedBox(height: 10),
           pw.Text('Name: $customerName'),
@@ -43,7 +40,6 @@ Future<pw.Document> generatePdf(
           pw.Text('GST No: $gstNumber'),
           pw.SizedBox(height: 20),
 
-          // Item Details
           pw.Text('Item Details', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
           pw.SizedBox(height: 10),
           pw.Table(
@@ -60,9 +56,9 @@ Future<pw.Document> generatePdf(
               ...items.map((item) => pw.TableRow(
                 children: [
                   pw.Text(item.name),
-                  pw.Text(item.quantity.toString()), // Changed from selectedQty
+                  pw.Text(item.purchaseQty.toString()),
                   pw.Text('${item.price.toStringAsFixed(2)}'),
-                  pw.Text('${(item.quantity * item.price).toStringAsFixed(2)}'), // Changed from selectedQty
+                  pw.Text('${(item.purchaseQty * item.price).toStringAsFixed(2)}'),
                 ],
               )).toList(),
             ],

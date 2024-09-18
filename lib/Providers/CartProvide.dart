@@ -18,10 +18,9 @@ class Cart with ChangeNotifier {
 
   void updateItemQty(Item item, int newQty) {
     if (newQty > 0 && newQty <= item.quantity) {
-      // Find the item in the cart and update its quantity
       final index = _cartItems.indexWhere((i) => i.id == item.id);
       if (index != -1) {
-        _cartItems[index].selectedQty = newQty;
+        _cartItems[index].purchaseQty = newQty;
         notifyListeners();
       }
     } else if (newQty <= 0) {
@@ -42,7 +41,7 @@ class Cart with ChangeNotifier {
   double getTotalPrice() {
     double totalPrice = _cartItems.fold(
       0,
-          (total, item) => total + (item.price * item.selectedQty),
+          (total, item) => total + (item.price * item.purchaseQty),
     );
 
     return double.parse(totalPrice.toStringAsFixed(2));

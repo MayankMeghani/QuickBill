@@ -4,7 +4,7 @@ class Item {
   String imageUrl;
   int quantity; // available quantity
   double price;
-  int selectedQty; // the fluctuating quantity for user selection
+  int purchaseQty; // the fluctuating quantity for user selection
 
   Item({
     required this.id,
@@ -12,7 +12,7 @@ class Item {
     required this.imageUrl,
     required this.quantity,
     required this.price,
-    this.selectedQty = 1, // initial selected quantity
+    this.purchaseQty = 1,
   });
 
   @override
@@ -30,7 +30,6 @@ class Item {
     return 'Item{id: $id, name: $name}';
   }
 
-  // Converts the Item object to a map to store in the database
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -38,7 +37,7 @@ class Item {
       'imageUrl': imageUrl,
       'quantity': quantity,
       'price': price,
-      'selectedQty': selectedQty,
+      'purchaseQty': purchaseQty,
     };
   }
 
@@ -50,7 +49,7 @@ class Item {
       imageUrl: map['imageUrl'] ?? '',
       quantity: map['quantity'] ?? 0,
       price: map['price'] ?? 0.0,
-      selectedQty: map['selectedQty'] ?? 1, // fallback to 1 if not present
+      purchaseQty: map['purchaseQty'] ?? 1, // fallback to 1 if not present
     );
   }
 }

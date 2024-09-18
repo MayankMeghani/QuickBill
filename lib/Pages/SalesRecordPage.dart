@@ -3,10 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
-
 import '../Models/Item.dart';
 import '../Providers/ShopProvider.dart';
-import '../Widgets/pdfpreView.dart';
 import '../api/billGenrerater.dart'; // For formatting date
 
 enum SortOption {
@@ -25,7 +23,7 @@ class _SalesRecordPageState extends State<SalesRecordPage> {
   SortOption selectedSortOption = SortOption.dateDesc; // Default sorting by date descending
   String? shopId;
 
-  // Function to fetch sales records from Firestore
+
   Future<void> fetchSalesRecords() async {
     setState(() {
       isLoading = true; // Show loader while fetching
@@ -40,7 +38,7 @@ class _SalesRecordPageState extends State<SalesRecordPage> {
       setState(() {
         salesRecords = snapshot.docs.map((doc) {
           final data = doc.data() as Map<String, dynamic>;
-          final documentId = doc.id; // Access auto-generated document ID
+          final documentId = doc.id;
           return {
             'documentId': documentId,
             ...data,
@@ -119,11 +117,12 @@ class _SalesRecordPageState extends State<SalesRecordPage> {
     List<Item> items = List<Item>.from(
       (record['items'] as List<dynamic>).map(
             (item) => Item(
-          id: item['id'] ?? '',
+          id: item['itemId'] ?? '',
           name: item['name'] ?? 'Unknown',
-          quantity: item['quantity'] ?? 0,
+          purchaseQty: int.parse(item['quantity']?.toString() ?? '1'),
           price: (item['price'] ?? 0).toDouble(),
           imageUrl: item['imageUrl'] ?? 'assets/images/default.jpg',
+          quantity: 0,
         ),
       ),
     );

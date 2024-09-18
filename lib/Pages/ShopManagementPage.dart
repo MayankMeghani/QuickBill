@@ -100,7 +100,6 @@ class _ShopManagementPageState extends State<ShopManagementPage> {
           'isBiometricEnabled': _isBiometricEnabled,
         }, SetOptions(merge: true));
 
-        // Call loadShopData from ShopProvider after saving data
         await context.read<ShopProvider>().loadShopData(_auth.currentUser?.email);
 
         await _loadShopData();

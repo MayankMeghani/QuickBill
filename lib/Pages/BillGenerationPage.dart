@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:quickbill/Services/ItemServices.dart';
 import '../Models/Item.dart';
 import '../Providers/ShopProvider.dart';
 import '../Widgets/ItemCard.dart';
-import 'Cart.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../Models/Cart.dart'; // Import the CartModel
+import 'CartPage.dart';
+import '../Providers/CartProvide.dart';
 
 class BillGenerationPage extends StatefulWidget {
   @override
@@ -18,7 +18,8 @@ class _BillGenerationPageState extends State<BillGenerationPage> {
   bool isLoading = false;
   String errorMessage = '';
   bool isNameAsc = true;
-  String? shopId; // Property to store the shopId
+  String? shopId;
+  ItemServices itemServices = ItemServices();
 
   Future<void> fetchItems() async {
     setState(() {
@@ -27,20 +28,8 @@ class _BillGenerationPageState extends State<BillGenerationPage> {
     });
 
     try {
-      final QuerySnapshot snapshot =
-      await FirebaseFirestore.instance.collection('items')
-          .where('shopId', isEqualTo: shopId).get();
+      items = await itemServices.FetchShopItems(shopId!) ;
       setState(() {
-        items = snapshot.docs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          return Item(
-            id: doc.id,
-            name: data['name'],
-            imageUrl: data['imageUrl'] ?? 'assets/images/bill.jpg',
-            quantity: data['quantity'],
-            price: (data['price']).toDouble(),
-          );
-        }).toList();
         filteredItems = items;
         sortItemsByName();
       });
@@ -105,8 +94,8 @@ class _BillGenerationPageState extends State<BillGenerationPage> {
             icon: Icon(isNameAsc ? Icons.arrow_upward : Icons.arrow_downward),
             onPressed: () {
               setState(() {
-                isNameAsc = !isNameAsc; // Toggle sorting order
-                sortItemsByName(); // Sort items after toggling
+                isNameAsc = !isNameAsc;
+                sortItemsByName();
               });
             },
             tooltip: 'Sort by Name',
