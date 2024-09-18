@@ -9,7 +9,7 @@ import '../api/billGenrerater.dart';
 
 
 class CartPage extends StatelessWidget {
-  Future<void> saveBillToDatabase(BuildContext context, String customerName, String mobileNumber) async {
+  Future<void> saveBillToDatabase(BuildContext context, String customerName, String mobileNumber, String gstNumber) async {
     final cartModel = Provider.of<Cart>(context, listen: false);
     final shopProvider = Provider.of<ShopProvider>(context, listen: false);
     final cartItems = cartModel.cartItems;
@@ -19,6 +19,7 @@ class CartPage extends StatelessWidget {
       final billData = {
         'customerName': customerName,
         'mobileNumber': mobileNumber,
+        'gstNumber' :gstNumber,
         'items': cartItems.map((item) => {
           'itemId': item.id,
           'name': item.name,
@@ -44,9 +45,11 @@ class CartPage extends StatelessWidget {
     }
   }
 
-  Future<void> generateAndPreviewPdf(BuildContext context, String customerName, String mobileNumber) async {
+  Future<void> generateAndPreviewPdf(BuildContext context, String customerName, String mobileNumber, String gstNumber) async {
     // Generate the PDF document
-    final pdf = await generatePdf(context, customerName, mobileNumber);
+    final shopDataProvider = Provider.of<ShopProvider>(context,listen: false);
+    final cartModel = Provider.of<Cart>(context, listen: false);
+    final pdf = await generatePdf(context, customerName, mobileNumber,gstNumber,shopDataProvider.shopData,cartModel.cartItems);
 
     // Navigate to a PDF preview screen
     await Navigator.push(
@@ -63,21 +66,20 @@ class CartPage extends StatelessWidget {
             ),
           ),
           body: Center(
-
             child: PdfPreview(
               build: (format) => pdf.save(),
               canChangeOrientation: false,
           ),
           ),
-        ),
-      )
+      ),
+      ),
     );
   }
 
   void generateBill(BuildContext context) {
     TextEditingController nameController = TextEditingController();
     TextEditingController mobileController = TextEditingController();
-
+    TextEditingController gstController = TextEditingController();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -94,6 +96,10 @@ class CartPage extends StatelessWidget {
                 controller: mobileController,
                 keyboardType: TextInputType.phone,
                 decoration: InputDecoration(labelText: 'Mobile Number (Optional)'),
+              ),
+              TextField(
+                controller: gstController,
+                decoration: InputDecoration(labelText: 'GST Number (Optional)'),
               ),
             ],
           ),
@@ -114,12 +120,15 @@ class CartPage extends StatelessWidget {
                   onPressed: () async {
                     String customerName = nameController.text.trim();
                     String mobileNumber = mobileController.text.trim();
-
+                    String gstNumber =gstController.text.trim();
                     if (customerName.isEmpty) {
                       customerName = 'unknown';
                     }
 
-                    await saveBillToDatabase(context, customerName, mobileNumber);
+                    if(gstNumber.isEmpty){
+                      gstNumber = 'N/A';
+                    }
+                    await saveBillToDatabase(context, customerName, mobileNumber, gstNumber);
                     final cartModel = Provider.of<Cart>(context, listen: false);
                     cartModel.clearCart();
                     Navigator.pop(context);
@@ -148,15 +157,19 @@ class CartPage extends StatelessWidget {
                   onPressed: () async {
                     String customerName = nameController.text.trim();
                     String mobileNumber = mobileController.text.trim();
+                    String gstNumber =gstController.text.trim();
 
                     if (customerName.isEmpty) {
                       customerName = 'unknown';
                     }
 
+                    if(gstNumber.isEmpty){
+                      gstNumber = 'N/A';
+                    }
 
-                    await saveBillToDatabase(context, customerName, mobileNumber);
+                    await saveBillToDatabase(context, customerName, mobileNumber,gstNumber);
 
-                    await generateAndPreviewPdf(context, customerName, mobileNumber);
+                    await generateAndPreviewPdf(context, customerName, mobileNumber, gstNumber);
 
                     final cartModel = Provider.of<Cart>(context, listen: false);
                     cartModel.clearCart();

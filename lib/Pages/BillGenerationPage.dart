@@ -140,10 +140,17 @@ class _BillGenerationPageState extends State<BillGenerationPage> {
                   final inCart = cartModel.isItemInCart(item);
 
                   final button = ElevatedButton(
-                    onPressed: inCart
+                    onPressed: item.quantity > 0
+                        ? (inCart
                         ? () => cartModel.removeItem(item)
-                        : () => cartModel.addItem(item),
-                    child: Text(inCart ? 'Remove from Cart' : 'Add to Cart'),
+                        : () => cartModel.addItem(item))
+                        : null,  // Disable button if out of stock
+                    child: Text(item.quantity > 0
+                        ? (inCart ? 'Remove from Cart' : 'Add to Cart')
+                        : 'Out of Stock'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: item.quantity > 0 ? null : Colors.grey, // Grey color if out of stock
+                    ),
                   );
 
                   return ItemCard(item: item, trailingButton: button);

@@ -1,9 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
-import '../Providers/ShopProvider.dart'; // For formatting date
+import '../Models/Item.dart';
+import '../Providers/ShopProvider.dart';
+import '../Widgets/pdfpreView.dart';
+import '../api/billGenrerater.dart'; // For formatting date
 
 enum SortOption {
   dateAsc,
@@ -20,6 +24,7 @@ class _SalesRecordPageState extends State<SalesRecordPage> {
   bool isLoading = true;
   SortOption selectedSortOption = SortOption.dateDesc; // Default sorting by date descending
   String? shopId;
+
   // Function to fetch sales records from Firestore
   Future<void> fetchSalesRecords() async {
     setState(() {
@@ -44,7 +49,7 @@ class _SalesRecordPageState extends State<SalesRecordPage> {
         sortSalesRecords(); // Sort after fetching
         isLoading = false; // Stop loader after fetching
       });
-      } catch (e) {
+    } catch (e) {
       print('Error fetching sales records: $e');
       setState(() {
         isLoading = false; // Stop loader in case of error
@@ -73,19 +78,18 @@ class _SalesRecordPageState extends State<SalesRecordPage> {
     return DateFormat('dd MMM yyyy, hh:mm a').format(date); // Format: 12 Sept 2024, 08:30 PM
   }
 
-  // Function to delete a record from Firestore
   Future<void> deleteSalesRecord(String documentId) async {
     try {
       await FirebaseFirestore.instance.collection('sales').doc(documentId).delete();
-      fetchSalesRecords(); // Refresh the sales records after deletion
+      fetchSalesRecords();
     } catch (e) {
       print('Error deleting record: $e');
     }
   }
 
   // Function to show confirmation dialog before deleting
-  Future<void> showDeleteConfirmation(BuildContext context, String documentId) async {
-    return showDialog<void>(
+  Future<bool?> showDeleteConfirmation(BuildContext context, String documentId) async {
+    return showDialog<bool?>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
@@ -94,20 +98,65 @@ class _SalesRecordPageState extends State<SalesRecordPage> {
           actions: <Widget>[
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog
+                Navigator.of(context).pop(false); // Return false on cancel
               },
               child: Text('Cancel'),
             ),
             TextButton(
               onPressed: () {
-                deleteSalesRecord(documentId);
-                Navigator.of(context).pop(); // Close the dialog after deletion
+                Navigator.of(context).pop(true); // Return true on delete
               },
               child: Text('Delete'),
             ),
           ],
         );
       },
+    );
+  }
+  Future<void> _generateAndPreviewPdf(BuildContext context,  record) async {
+    final shopProvider = Provider.of<ShopProvider>(context, listen: false);
+    final shopData = shopProvider.shopData;
+    List<Item> items = List<Item>.from(
+      (record['items'] as List<dynamic>).map(
+            (item) => Item(
+          id: item['id'] ?? '',
+          name: item['name'] ?? 'Unknown',
+          quantity: item['quantity'] ?? 0,
+          price: (item['price'] ?? 0).toDouble(),
+          imageUrl: item['imageUrl'] ?? 'assets/images/default.jpg',
+        ),
+      ),
+    );
+    final pdf = await generatePdf(
+      context,
+      record['customerName'],
+      record['mobileNumber'],
+      record['gstNumber'],
+      shopData,
+      items,
+    );
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: Text('PDF Preview'),
+            leading: IconButton(
+              icon: Icon(Icons.arrow_back),
+              onPressed: () {
+                Navigator.pop(context);
+              },
+            ),
+          ),
+          body: Center(
+            child: PdfPreview(
+              build: (format) => pdf.save(),
+              canChangeOrientation: false,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -152,42 +201,46 @@ class _SalesRecordPageState extends State<SalesRecordPage> {
           itemCount: salesRecords.length,
           itemBuilder: (context, index) {
             final record = salesRecords[index];
-            final documentId = record['documentId'] ; // Provide default value if null
+            final documentId = record['documentId'] ;
             final currentDate = formatDate(record['transactionDate'] as Timestamp);
             final previousDate = index > 0 ? formatDate(salesRecords[index - 1]['transactionDate'] as Timestamp) : '';
 
             // Add a date header if it's a new day
             bool isNewDate = index == 0 || currentDate != previousDate;
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (isNewDate) // Display date header only if it's a new day
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Text(
-                      currentDate, // Display the formatted date
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            return Dismissible(
+              key: Key(documentId),
+              background: Container(color: Colors.red,
+            alignment: Alignment.centerRight,
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: Icon(
+            Icons.delete,
+            color: Colors.white,
+            ),
+              ),
+              direction: DismissDirection.endToStart,
+              onDismissed: (direction) async {
+                bool? confirmDelete = await showDeleteConfirmation(context, documentId);
+                if (confirmDelete == true) {
+                  deleteSalesRecord(documentId);
+                } else {
+                  // Optionally: Add code to handle the case where deletion was canceled
+                  fetchSalesRecords(); // Refresh the list if needed
+                }
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (isNewDate) // Display date header only if it's a new day
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Text(
+                        currentDate, // Display the formatted date
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
                     ),
-                  ),
-                Dismissible(
-                  key: Key(documentId),
-                  direction: DismissDirection.endToStart, // Swipe from right to left
-                  background: Container(
-                    color: Colors.red,
-                    alignment: Alignment.centerRight,
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: Icon(
-                      Icons.delete,
-                      color: Colors.white,
-                    ),
-                  ),
-                  confirmDismiss: (direction) async {
-                    await showDeleteConfirmation(context, documentId);
-                    return false; // Prevent automatic dismissal
-                  },
-                  child: ListTile(
-                    leading: Icon(Icons.receipt_long),
+                  ExpansionTile(
+                    key: Key(documentId),
                     title: RichText(
                       text: TextSpan(
                         children: [
@@ -202,18 +255,61 @@ class _SalesRecordPageState extends State<SalesRecordPage> {
                         ],
                       ),
                     ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (record['mobileNumber'] != null && record['mobileNumber'].isNotEmpty)
-                          Text('Mobile: ${record['mobileNumber']}'),
-                        Text('Total: ₹${record['totalPrice']?.toStringAsFixed(2) ?? '0.00'}'), // Provide default value if null
-                      ],
+                    subtitle: Text(
+                      'Total: ₹${record['totalPrice']?.toStringAsFixed(2) ?? '0.00'}\nDate: ${formatDateTime(record['transactionDate'] as Timestamp)}',
+                      style: TextStyle(color: Colors.black87),
                     ),
-                    trailing: Text(formatDateTime(record['transactionDate'] as Timestamp)),
+                    children: [
+                      ListTile(
+                        leading: Icon(Icons.receipt_long),
+                        title: Text(record['mobileNumber'] != null && record['mobileNumber'].isNotEmpty ? 'Mobile: ${record['mobileNumber']}' : 'Mobile: N/A'),
+                        subtitle: Text('Gst No: ${record['gstNo'] ?? 'N/A'}'),
+                      ),
+                      // Example of showing all items in the sale
+                      if (record['items'] != null)
+                        ...ListTile.divideTiles(
+                          context: context,
+                          tiles: (record['items'] as List).map((item) {
+                            return ListTile(
+                              title: Text(item['name']),
+                              subtitle: Text('Price: ₹${item['price']} x ${item['quantity']}'),
+                            );
+                          }),
+                        ).toList(),
+                      // Delete option displayed after expansion
+                      ListTile(
+                        title: Align(
+                          alignment: Alignment.centerRight,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              TextButton(
+                                onPressed: () {
+                                  _generateAndPreviewPdf(context, record);
+                                },
+                                child: Text('View Bill', style: TextStyle(color: Colors.blue)),
+                              ),
+                              SizedBox(width: 8), // Space between buttons
+                              TextButton(
+                                onPressed: () async {
+                                  bool? confirmDelete =  await showDeleteConfirmation(context, documentId);
+                                  if (confirmDelete == true) {
+                                    deleteSalesRecord(documentId);
+                                  } else {
+                                    // Optionally: Add code to handle the case where deletion was canceled
+                                    fetchSalesRecords(); // Refresh the list if needed
+                                  }
+                                },
+                                child: Text('Delete', style: TextStyle(color: Colors.red)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                ],
+              ),
             );
           },
         ),

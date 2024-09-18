@@ -15,8 +15,8 @@ class _StockManagementPageState extends State<StockManagementPage> {
   List<Item> filteredItems = [];
   bool isLoading = false;
   String errorMessage = '';
-  bool isQuantityAsc = true; // State variable to track sorting order for quantity
-  String? shopId; // Property to store the shopId
+  bool isQuantityAsc = true;
+  String? shopId;
 
   Future<void> fetchItems() async {
     setState(() {
@@ -50,7 +50,7 @@ class _StockManagementPageState extends State<StockManagementPage> {
           );
         }).toList();
         filteredItems = items;
-        sortItemsByQuantity(); // Sort items by quantity when loaded
+        sortItemsByQuantity();
       });
     } catch (e) {
       setState(() {
@@ -83,12 +83,12 @@ class _StockManagementPageState extends State<StockManagementPage> {
         'imageUrl': i.imageUrl
       },
     );
-        await fetchItems(); // Refresh the list after updating
+    await fetchItems();
   }
 
-  void addHandler() async{
+  void addHandler() async {
     final result = await Navigator.pushNamed(context, '/modify');
-      await fetchItems(); // Refresh the list after adding the item
+    await fetchItems();
   }
 
   void filterItems(String query) {
@@ -99,7 +99,6 @@ class _StockManagementPageState extends State<StockManagementPage> {
     });
   }
 
-  // Sorting function based on the current sorting order for quantity
   void sortItemsByQuantity() {
     setState(() {
       if (isQuantityAsc) {
@@ -109,6 +108,23 @@ class _StockManagementPageState extends State<StockManagementPage> {
       }
     });
   }
+
+    Future<void> deleteItem(Item item) async {
+      try {
+        await FirebaseFirestore.instance.collection('items').doc(item.id).delete();
+        setState(() {
+          items.remove(item);
+          filteredItems.remove(item);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${item.name} deleted successfully')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting item: $e')),
+        );
+      }
+    }
 
   @override
   Widget build(BuildContext context) {
@@ -120,8 +136,8 @@ class _StockManagementPageState extends State<StockManagementPage> {
             icon: Icon(isQuantityAsc ? Icons.arrow_upward : Icons.arrow_downward),
             onPressed: () {
               setState(() {
-                isQuantityAsc = !isQuantityAsc; // Toggle sorting order
-                sortItemsByQuantity(); // Sort items after toggling
+                isQuantityAsc = !isQuantityAsc;
+                sortItemsByQuantity();
               });
             },
             tooltip: 'Sort by Quantity',
@@ -145,7 +161,7 @@ class _StockManagementPageState extends State<StockManagementPage> {
           ),
           Expanded(
             child: RefreshIndicator(
-              onRefresh: fetchItems,  // Trigger fetch when pulled down
+              onRefresh: fetchItems,
               child: isLoading
                   ? Center(child: CircularProgressIndicator())
                   : errorMessage.isNotEmpty
@@ -170,11 +186,46 @@ class _StockManagementPageState extends State<StockManagementPage> {
                 itemCount: filteredItems.length,
                 itemBuilder: (context, index) {
                   final item = filteredItems[index];
+                  final highlightColor = item.quantity == 0 ? Colors.red.shade100 : null;
                   final button = ElevatedButton(
                     onPressed: () => updateHandler(item),
                     child: Text('Modify'),
                   );
-                  return ItemCard(item: item, trailingButton: button);
+                  return Dismissible(
+                    key: Key(item.id),
+                    background: Container(
+                      color: Colors.red,
+                      alignment: Alignment.centerRight,
+                      padding: EdgeInsets.symmetric(horizontal: 20),
+                      child: Icon(Icons.delete, color: Colors.white),
+                    ),
+                    direction: DismissDirection.endToStart,
+                    onDismissed: (direction) {
+                      deleteItem(item);
+                    },
+                    confirmDismiss: (direction) async {
+                      return await showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                            title: Text("Confirm"),
+                            content: Text("Are you sure you want to delete ${item.name}?"),
+                            actions: <Widget>[
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(false),
+                                child: Text("CANCEL"),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(true),
+                                child: Text("DELETE"),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                    child: ItemCard(item: item, trailingButton: button, highlightColor: highlightColor),
+                  );
                 },
               ),
             ),
@@ -182,7 +233,7 @@ class _StockManagementPageState extends State<StockManagementPage> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed:()=> addHandler(),
+        onPressed: () => addHandler(),
         child: Icon(Icons.add),
         tooltip: 'Add item',
       ),

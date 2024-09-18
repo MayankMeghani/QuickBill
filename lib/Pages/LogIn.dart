@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:local_auth/local_auth.dart'; // Import local_auth for biometrics
 import 'package:provider/provider.dart';
 import 'package:quickbill/Pages/Signup.dart';
+import 'package:quickbill/api/Authenticate.dart';
 import '../Providers/ShopProvider.dart';
 
 class LoginPage extends StatefulWidget {
@@ -19,6 +20,8 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
   final LocalAuthentication _localAuth = LocalAuthentication();
   bool _canCheckBiometrics = false;
+  final AuthService _authService = AuthService();
+
 
   @override
   void initState() {
@@ -37,18 +40,20 @@ class _LoginPageState extends State<LoginPage> {
   // Method to authenticate using biometrics
   Future<void> _authenticateWithBiometrics() async {
     try {
-      bool authenticated = await _localAuth.authenticate(
-        localizedReason: 'Please authenticate to log in',
-        // biometricOnly: true,
-      );
+      bool Authenticated =await _authService.authenticateWithBiometrics();
 
-      if (authenticated) {
-        // If authenticated, proceed to home page
-        Provider.of<ShopProvider>(context, listen: false).loadShopData();
+      if (Authenticated) {
+
+        Map<String, String?> credentials = await _authService.getCredentials();
+        print(credentials);
+          UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+          email: credentials['email']??'',
+          password: credentials['password']??'',
+        );
+        Provider.of<ShopProvider>(context, listen: false).loadShopData(userCredential.user!.email);
         Navigator.pushReplacementNamed(context, '/home');
       }
     } catch (e) {
-      print(e);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Biometric authentication failed")),
       );
@@ -57,11 +62,13 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _login() async {
     try {
+      String pass=_passwordController.text;
       UserCredential userCredential = await _auth.signInWithEmailAndPassword(
         email: _emailController.text,
         password: _passwordController.text,
       );
-      Provider.of<ShopProvider>(context, listen: false).loadShopData();
+      _authService.saveCredential(pass);
+      Provider.of<ShopProvider>(context, listen: false).loadShopData(userCredential.user!.email);
       Navigator.pushReplacementNamed(context, '/home');
     } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

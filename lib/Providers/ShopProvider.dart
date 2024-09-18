@@ -11,11 +11,10 @@ class ShopProvider with ChangeNotifier {
 
   Future<void> updateShopData(Map<String, dynamic> data) async {
     await _shopService.updateShopData(data);
-    // await loadShopData();
   }
 
-  Future<void> loadShopData() async {
-    _shopData = await _shopService.getShopData();
+  Future<void> loadShopData(String? email) async {
+    _shopData = await _shopService.getShopData(email);
     notifyListeners();
   }
 }

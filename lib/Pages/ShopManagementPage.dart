@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../Providers/ShopProvider.dart';
+import '../api/Authenticate.dart';
 
 class ShopManagementPage extends StatefulWidget {
   @override
@@ -12,16 +13,19 @@ class ShopManagementPage extends StatefulWidget {
 class _ShopManagementPageState extends State<ShopManagementPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final AuthService _authService = AuthService();
 
   Map<String, dynamic>? _shopData;
   bool _isLoading = true;
   bool _isEditing = false;
+  bool _isBiometricEnabled = false;
 
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _addressController = TextEditingController();
   final _gstNoController = TextEditingController();
   final _ownerNameController = TextEditingController();
+  final _mobileNumberController = TextEditingController();
 
   @override
   void initState() {
@@ -35,22 +39,24 @@ class _ShopManagementPageState extends State<ShopManagementPage> {
     _addressController.dispose();
     _gstNoController.dispose();
     _ownerNameController.dispose();
+    _mobileNumberController.dispose();
     super.dispose();
   }
 
   Future<void> _loadShopData() async {
     setState(() {
       _isLoading = true;
-
     });
 
     try {
       String userId = _auth.currentUser!.uid;
-      DocumentSnapshot shopDoc = await _firestore.collection('shops').doc(userId).get();
+      DocumentSnapshot shopDoc =
+          await _firestore.collection('shops').doc(userId).get();
 
       if (shopDoc.exists) {
         setState(() {
           _shopData = shopDoc.data() as Map<String, dynamic>;
+          _isBiometricEnabled = _shopData?['isBiometricEnabled'] ?? false;
           _isLoading = false;
         });
         _updateControllers();
@@ -73,6 +79,7 @@ class _ShopManagementPageState extends State<ShopManagementPage> {
     _addressController.text = _shopData?['address'] ?? '';
     _gstNoController.text = _shopData?['gstNo'] ?? '';
     _ownerNameController.text = _shopData?['ownerName'] ?? '';
+    _mobileNumberController.text = _shopData?['mobileNo'] ?? '';
   }
 
   Future<void> _saveShopData() async {
@@ -88,11 +95,13 @@ class _ShopManagementPageState extends State<ShopManagementPage> {
           'address': _addressController.text,
           'gstNo': _gstNoController.text,
           'ownerName': _ownerNameController.text,
+          'mobileNo': _mobileNumberController.text,
           'isProfileComplete': true,
+          'isBiometricEnabled': _isBiometricEnabled,
         }, SetOptions(merge: true));
 
         // Call loadShopData from ShopProvider after saving data
-        await context.read<ShopProvider>().loadShopData();
+        await context.read<ShopProvider>().loadShopData(_auth.currentUser?.email);
 
         await _loadShopData();
         setState(() {
@@ -101,7 +110,8 @@ class _ShopManagementPageState extends State<ShopManagementPage> {
       } catch (e) {
         print('Error saving shop data: $e');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save shop data. Please try again.')),
+          SnackBar(
+              content: Text('Failed to save shop data. Please try again.')),
         );
       }
 
@@ -111,6 +121,50 @@ class _ShopManagementPageState extends State<ShopManagementPage> {
     }
   }
 
+
+  Future<void> _toggleBiometric(bool value) async {
+    print(value);
+    if (value) {
+        bool Authenticate =await _authService.authenticateWithBiometrics();
+
+        if (Authenticate) {
+          setState(() {
+            _isBiometricEnabled = true;
+            _authService.saveCredentials();
+          });
+        }
+        else{
+          setState(() {
+            _isBiometricEnabled = false;
+          });
+        }
+    } else {
+      setState(() {
+        _isBiometricEnabled = false;
+      });
+    }
+    await _saveBiometricPreferenceToDatabase();
+    await _loadShopData();
+  }
+  Future<void> _saveBiometricPreferenceToDatabase() async {
+    try {
+
+      String userId = _auth.currentUser!.uid;
+        await _firestore.collection('shops').doc(userId).set({
+          'isBiometricEnabled': _isBiometricEnabled,
+        }, SetOptions(merge: true));
+
+      print("Biometric preference saved successfully: $_isBiometricEnabled");
+    } catch (e) {
+      print("Failed to save biometric preference: ${e.toString()}");
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Failed to save biometric preference."),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -122,7 +176,8 @@ class _ShopManagementPageState extends State<ShopManagementPage> {
             icon: Icon(Icons.logout),
             onPressed: () async {
               await _auth.signOut();
-              Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+              Navigator.pushNamedAndRemoveUntil(
+                  context, '/login', (route) => false);
             },
           ),
         ],
@@ -130,9 +185,55 @@ class _ShopManagementPageState extends State<ShopManagementPage> {
       body: SafeArea(
         child: _isLoading
             ? Center(child: CircularProgressIndicator())
-            : _shopData == null || _shopData!['isProfileComplete'] == false || _isEditing
-            ? _buildShopForm()
-            : _buildShopDetails(),
+            : _shopData == null ||
+                    _shopData!['isProfileComplete'] == false ||
+                    _isEditing
+                ? _buildShopForm()
+                : _buildShopDetails(),
+      ),
+    );
+  }
+
+  Widget _buildShopDetails() {
+    return Padding(
+      padding: EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Shop Details', style: Theme.of(context).textTheme.titleLarge),
+          SizedBox(height: 16),
+          Text('Shop Name: ${_shopData!['name'] ?? 'Not set'}'),
+          SizedBox(height: 8),
+          Text('Address: ${_shopData!['address'] ?? 'Not set'}'),
+          SizedBox(height: 8),
+          Text('GST No: ${_shopData!['gstNo'] ?? 'Not set'}'),
+          SizedBox(height: 8),
+          Text('Owner Name: ${_shopData!['ownerName'] ?? 'Not set'}'),
+          SizedBox(height: 8),
+          Text('Mobile No: ${_shopData!['mobileNo'] ?? 'Not set'}'),
+          SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                _isEditing = true;
+              });
+            },
+            child: Text('Edit Profile'),
+          ),
+          SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Enable Biometric Authentication'),
+              Switch(
+                value: _isBiometricEnabled,
+                onChanged: (value) async {
+                  await _toggleBiometric(value);
+                },
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -176,13 +277,7 @@ class _ShopManagementPageState extends State<ShopManagementPage> {
             SizedBox(height: 8),
             TextFormField(
               controller: _gstNoController,
-              decoration: InputDecoration(labelText: 'GST No'),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter GST No';
-                }
-                return null;
-              },
+              decoration: InputDecoration(labelText: 'GST No(optional)'),
             ),
             SizedBox(height: 8),
             TextFormField(
@@ -191,6 +286,18 @@ class _ShopManagementPageState extends State<ShopManagementPage> {
               validator: (value) {
                 if (value == null || value.isEmpty) {
                   return 'Please enter owner name';
+                }
+                return null;
+              },
+            ),
+            SizedBox(height: 8),
+            TextFormField(
+              controller: _mobileNumberController,
+              decoration: InputDecoration(labelText: 'Mobile No'),
+              keyboardType: TextInputType.phone,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter mobile no';
                 }
                 return null;
               },
@@ -216,32 +323,4 @@ class _ShopManagementPageState extends State<ShopManagementPage> {
     );
   }
 
-  Widget _buildShopDetails() {
-    return Padding(
-      padding: EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Shop Details', style: Theme.of(context).textTheme.titleLarge),
-          SizedBox(height: 16),
-          Text('Shop Name: ${_shopData!['name'] ?? 'Not set'}'),
-          SizedBox(height: 8),
-          Text('Address: ${_shopData!['address'] ?? 'Not set'}'),
-          SizedBox(height: 8),
-          Text('GST No: ${_shopData!['gstNo'] ?? 'Not set'}'),
-          SizedBox(height: 8),
-          Text('Owner Name: ${_shopData!['ownerName'] ?? 'Not set'}'),
-          SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _isEditing = true;
-              });
-            },
-            child: Text('Edit Profile'),
-          ),
-        ],
-      ),
-    );
-  }
 }

@@ -125,18 +125,15 @@ class _ItemFormState extends State<ItemForm> {
         'quantity': int.parse(quantityController.text),
         'price': double.parse(priceController.text),
         'imageUrl': imageUrl,
-        'shopId': shopId, // Add shopId to item data
+        'shopId': shopId,
       };
 
       if (_isExistingItem && itemId != null) {
         await FirebaseFirestore.instance.collection('items').doc(itemId).update(itemData);
 
-
         } else {
-        // Add new item
         final itemRef = await FirebaseFirestore.instance.collection('items').add(itemData);
 
-        // Add item ID to the shop's item list
         final shopRef = FirebaseFirestore.instance.collection('shops').doc(shopId);
         await shopRef.update({
           'itemIds': FieldValue.arrayUnion([itemRef.id])

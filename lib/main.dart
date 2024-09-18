@@ -13,12 +13,14 @@ import 'Pages/StockManagementPage.dart';
 import 'Pages/ShopManagementPage.dart';
 import 'Providers/ShopProvider.dart';
 import 'firebase_options.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
   runApp(
       MultiProvider(
       providers: [
@@ -55,6 +57,8 @@ class QuickBillApp extends StatelessWidget {
 }
 
 class AuthWrapper extends StatelessWidget {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
@@ -78,7 +82,7 @@ class AuthWrapper extends StatelessWidget {
 
         // Load shop data after login
         final user = snapshot.data;
-        Provider.of<ShopProvider>(context, listen: false).loadShopData();
+        Provider.of<ShopProvider>(context, listen: false).loadShopData(_auth.currentUser?.email);
 
         return HomePage();
       },

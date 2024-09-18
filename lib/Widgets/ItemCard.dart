@@ -4,12 +4,14 @@ import '../Models/Item.dart';
 class ItemCard extends StatelessWidget {
   final Item item;
   final Widget trailingButton;
+  final Color? highlightColor; // New parameter to highlight the item
 
-  const ItemCard({Key? key, required this.item, required this.trailingButton}) : super(key: key);
+  const ItemCard({Key? key, required this.item, required this.trailingButton, this.highlightColor}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Card(
+      color: highlightColor ?? Colors.white, // Apply highlight color if provided
       margin: EdgeInsets.all(8.0),
       child: ListTile(
         leading: Container(

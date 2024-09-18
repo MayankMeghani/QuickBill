@@ -6,14 +6,12 @@ class ShopService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
 
-  Future<Map<String, dynamic>?> getShopData() async {
+  Future<Map<String, dynamic>?> getShopData(String? email) async {
     try {
-      User? user = _auth.currentUser;
-      print(user?.email);
-      if (user != null) {
+      if (email != null) {
         QuerySnapshot shopQuery = await _firestore
             .collection('shops')
-            .where('email', isEqualTo: user.email)
+            .where('email', isEqualTo: email)
             .limit(1)
             .get();
 
