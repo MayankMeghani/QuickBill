@@ -34,7 +34,7 @@ class ItemCard extends StatelessWidget {
           ),
         ),
         title: Text(item.name),
-        subtitle: Text('Quantity: ${item.quantity}, Price: \$${item.price.toStringAsFixed(2)}'),
+        subtitle: Text('Quantity: ${item.quantity}\nPrice: ₹ ${item.price.toStringAsFixed(2)}'),
         trailing: trailingButton,
       ),
     );

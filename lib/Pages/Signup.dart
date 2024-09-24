@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+
 class SignUpPage extends StatefulWidget {
   @override
   _SignUpPageState createState() => _SignUpPageState();
@@ -38,16 +39,19 @@ class _SignUpPageState extends State<SignUpPage> {
       _isLoading = true;
       _errorMessage = null;
     });
-
+    final password =_passwordController.text;
     try {
       UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
         email: _emailController.text,
-        password: _passwordController.text,
+        password: password,
       );
-      await _createInitialShopDocument(userCredential.user!.uid, _emailController.text);
 
-      Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
-    } on FirebaseAuthException catch (e) {
+      await _createInitialShopDocument(userCredential.user!.uid, _emailController.text);
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/login', (route) => false,
+        arguments: "Account created successfully, please log in",
+      );    } on FirebaseAuthException catch (e) {
       setState(() {
         switch (e.code) {
           case 'weak-password':
@@ -74,8 +78,11 @@ class _SignUpPageState extends State<SignUpPage> {
       'userId': userId,
       'email': email,
       'isProfileComplete': false,
+      'isBiometricEnabled':false,
     });
   }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

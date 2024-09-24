@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../Providers/ShopProvider.dart';
-import '../api/Authenticate.dart';
+import '../api/Authenticator.dart';
 
 class ShopManagementPage extends StatefulWidget {
   @override
@@ -122,7 +122,6 @@ class _ShopManagementPageState extends State<ShopManagementPage> {
 
 
   Future<void> _toggleBiometric(bool value) async {
-    print(value);
     if (value) {
         bool Authenticate =await _authService.authenticateWithBiometrics();
 
@@ -135,11 +134,13 @@ class _ShopManagementPageState extends State<ShopManagementPage> {
         else{
           setState(() {
             _isBiometricEnabled = false;
+            _authService.removeCredentials();
           });
         }
     } else {
       setState(() {
         _isBiometricEnabled = false;
+        _authService.removeCredentials();
       });
     }
     await _saveBiometricPreferenceToDatabase();

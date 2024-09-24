@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:local_auth/local_auth.dart'; // Import local_auth for biometrics
+import 'package:local_auth/local_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:quickbill/Pages/Signup.dart';
-import 'package:quickbill/api/Authenticate.dart';
+import 'package:quickbill/api/Authenticator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../Providers/ShopProvider.dart';
 
 class LoginPage extends StatefulWidget {
@@ -19,7 +20,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final LocalAuthentication _localAuth = LocalAuthentication();
-  bool _canCheckBiometrics = false;
+  bool _biometricsEnable = false;
   final AuthService _authService = AuthService();
 
 
@@ -29,21 +30,40 @@ class _LoginPageState extends State<LoginPage> {
     _checkBiometrics();
   }
 
+
+
   Future<void> _checkBiometrics() async {
-    bool canCheckBiometrics = await _localAuth.canCheckBiometrics;
-    setState(() {
-      _canCheckBiometrics = canCheckBiometrics;
-    });
+    try {
+      bool canCheckBiometrics = await _localAuth.canCheckBiometrics;
+
+      if (canCheckBiometrics) {
+        final SharedPreferences prefs = await SharedPreferences.getInstance();
+        bool isBiometricEnabled = prefs.getBool('isBiometricEnabled') ?? false;
+
+        setState(() {
+          _biometricsEnable = isBiometricEnabled;
+        });
+      } else {
+        setState(() {
+          _biometricsEnable = false;
+        });
+      }
+    } catch (e) {
+      print('Error checking biometrics: $e');
+      setState(() {
+        _biometricsEnable = false;
+      });
+    }
   }
 
   Future<void> _authenticateWithBiometrics() async {
+    if(_biometricsEnable){
     try {
       bool Authenticated =await _authService.authenticateWithBiometrics();
 
       if (Authenticated) {
 
         Map<String, String?> credentials = await _authService.getCredentials();
-        print(credentials);
           UserCredential userCredential = await _auth.signInWithEmailAndPassword(
           email: credentials['email']??'',
           password: credentials['password']??'',
@@ -56,16 +76,24 @@ class _LoginPageState extends State<LoginPage> {
         SnackBar(content: Text("Biometric authentication failed")),
       );
     }
+    }
+    else{
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Biometric authentication is not enabled")),
+      );
+
+    }
   }
 
   Future<void> _login() async {
     try {
+      String email=_emailController.text;
       String pass=_passwordController.text;
       UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-        email: _emailController.text,
-        password: _passwordController.text,
+        email: email,
+        password: pass,
       );
-      _authService.saveCredential(pass);
+      _authService.saveCredential(email,pass);
       Provider.of<ShopProvider>(context, listen: false).loadShopData(userCredential.user!.email);
       Navigator.pushReplacementNamed(context, '/home');
     } on FirebaseAuthException catch (e) {
@@ -77,6 +105,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final String? message = ModalRoute.of(context)?.settings.arguments as String?;
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -101,6 +130,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
                 SizedBox(height: 10.0),
+
                 if (widget.message != null)
                   Text(
                     widget.message!,
@@ -118,6 +148,13 @@ class _LoginPageState extends State<LoginPage> {
                   textAlign: TextAlign.center,
                 ),
                 SizedBox(height: 10.0),
+                if (message != null)
+                  Text(
+                    message,
+                    style: TextStyle(color: Colors.green, fontSize: 18),
+                    textAlign: TextAlign.center,
+                  ),
+                if(message == null)
                 Text(
                   "Please login to your account",
                   style: TextStyle(
@@ -196,7 +233,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
                 SizedBox(height: 20.0),
-                if (_canCheckBiometrics)
+                if ( _biometricsEnable)
                   ElevatedButton(
                     onPressed: _authenticateWithBiometrics,
                     child: Padding(
