@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:quickbill/Services/ItemServices.dart';
 import '../Models/Item.dart';
 import '../Providers/ShopProvider.dart';
 import '../Widgets/ItemCard.dart';
@@ -17,7 +18,7 @@ class _StockManagementPageState extends State<StockManagementPage> {
   String errorMessage = '';
   bool isQuantityAsc = true;
   String? shopId;
-
+  ItemServices itemServices =new ItemServices();
   Future<void> fetchItems() async {
     setState(() {
       isLoading = true;
@@ -42,11 +43,12 @@ class _StockManagementPageState extends State<StockManagementPage> {
         items = snapshot.docs.map((doc) {
           final data = doc.data() as Map<String, dynamic>;
           return Item(
-            id: doc.id,
-            name: data['name'] ?? '',
-            imageUrl: data['imageUrl'] ?? 'assets/images/bill.jpg',
-            quantity: data['quantity'] ?? 0,
-            price: (data['price'] ?? 0).toDouble(),
+              id: doc.id,
+              name: data['name'] ?? '',
+              imageUrl: data['imageUrl'] ?? 'assets/images/bill.jpg',
+              quantity: data['quantity'] ?? 0,
+              price: (data['price'] ?? 0).toDouble(),
+              shopId: data['shopId']
           );
         }).toList();
         filteredItems = items;
@@ -90,7 +92,22 @@ class _StockManagementPageState extends State<StockManagementPage> {
     final result = await Navigator.pushNamed(context, '/modify');
     await fetchItems();
   }
-
+  Future<void> deleteItem(Item item) async {
+    try {
+      await itemServices.removeItem(item);
+      setState(() {
+        items.remove(item);
+        filteredItems.remove(item);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${item.name} deleted successfully')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error deleting item: $e')),
+      );
+    }
+  }
   void filterItems(String query) {
     setState(() {
       filteredItems = items
@@ -109,22 +126,7 @@ class _StockManagementPageState extends State<StockManagementPage> {
     });
   }
 
-    Future<void> deleteItem(Item item) async {
-      try {
-        await FirebaseFirestore.instance.collection('items').doc(item.id).delete();
-        setState(() {
-          items.remove(item);
-          filteredItems.remove(item);
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${item.name} deleted successfully')),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting item: $e')),
-        );
-      }
-    }
+
 
   @override
   Widget build(BuildContext context) {

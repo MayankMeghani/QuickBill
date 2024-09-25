@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../Providers/ShopProvider.dart';
 import '../api/Authenticator.dart';
 
@@ -18,8 +19,7 @@ class _ShopManagementPageState extends State<ShopManagementPage> {
   Map<String, dynamic>? _shopData;
   bool _isLoading = true;
   bool _isEditing = false;
-  bool _isBiometricEnabled = false;
-
+  bool _isBiometricEnabled= false;
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _addressController = TextEditingController();
@@ -49,6 +49,7 @@ class _ShopManagementPageState extends State<ShopManagementPage> {
     });
 
     try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
       String userId = _auth.currentUser!.uid;
       DocumentSnapshot shopDoc =
           await _firestore.collection('shops').doc(userId).get();
@@ -56,7 +57,7 @@ class _ShopManagementPageState extends State<ShopManagementPage> {
       if (shopDoc.exists) {
         setState(() {
           _shopData = shopDoc.data() as Map<String, dynamic>;
-          _isBiometricEnabled = _shopData?['isBiometricEnabled'] ?? false;
+          _isBiometricEnabled = prefs.getBool('isBiometricEnabled')!;
           _isLoading = false;
         });
         _updateControllers();
@@ -97,7 +98,6 @@ class _ShopManagementPageState extends State<ShopManagementPage> {
           'ownerName': _ownerNameController.text,
           'mobileNo': _mobileNumberController.text,
           'isProfileComplete': true,
-          'isBiometricEnabled': _isBiometricEnabled,
         }, SetOptions(merge: true));
 
         await context.read<ShopProvider>().loadShopData(_auth.currentUser?.email);
@@ -142,27 +142,6 @@ class _ShopManagementPageState extends State<ShopManagementPage> {
         _isBiometricEnabled = false;
         _authService.removeCredentials();
       });
-    }
-    await _saveBiometricPreferenceToDatabase();
-    await _loadShopData();
-  }
-  Future<void> _saveBiometricPreferenceToDatabase() async {
-    try {
-
-      String userId = _auth.currentUser!.uid;
-        await _firestore.collection('shops').doc(userId).set({
-          'isBiometricEnabled': _isBiometricEnabled,
-        }, SetOptions(merge: true));
-
-      print("Biometric preference saved successfully: $_isBiometricEnabled");
-    } catch (e) {
-      print("Failed to save biometric preference: ${e.toString()}");
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Failed to save biometric preference."),
-        ),
-      );
     }
   }
 

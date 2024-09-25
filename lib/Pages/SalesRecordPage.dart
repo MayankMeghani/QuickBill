@@ -5,11 +5,11 @@ import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import '../Models/Item.dart';
 import '../Providers/ShopProvider.dart';
-import '../api/billGenrerater.dart'; // For formatting date
+import '../api/billGenrerater.dart';
 
 enum SortOption {
   dateAsc,
-  dateDesc, // Default sorting by date descending
+  dateDesc,
 }
 
 class SalesRecordPage extends StatefulWidget {
@@ -117,12 +117,13 @@ class _SalesRecordPageState extends State<SalesRecordPage> {
     List<Item> items = List<Item>.from(
       (record['items'] as List<dynamic>).map(
             (item) => Item(
-          id: item['itemId'] ?? '',
-          name: item['name'] ?? 'Unknown',
-          purchaseQty: int.parse(item['quantity']?.toString() ?? '1'),
-          price: (item['price'] ?? 0).toDouble(),
-          imageUrl: item['imageUrl'] ?? 'assets/images/default.jpg',
-          quantity: 0,
+            id: item['itemId'] ?? '',
+            name: item['name'] ?? 'Unknown',
+            purchaseQty: int.parse(item['quantity']?.toString() ?? '1'),
+            price: (item['price'] ?? 0).toDouble(),
+            imageUrl: item['imageUrl'] ?? 'assets/images/default.jpg',
+            quantity: 0,
+            shopId: item['shopId']
         ),
       ),
     );
@@ -210,12 +211,12 @@ class _SalesRecordPageState extends State<SalesRecordPage> {
             return Dismissible(
               key: Key(documentId),
               background: Container(color: Colors.red,
-            alignment: Alignment.centerRight,
-            padding: EdgeInsets.symmetric(horizontal: 20),
-            child: Icon(
-            Icons.delete,
-            color: Colors.white,
-            ),
+                alignment: Alignment.centerRight,
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Icon(
+                  Icons.delete,
+                  color: Colors.white,
+                ),
               ),
               direction: DismissDirection.endToStart,
               onDismissed: (direction) async {
@@ -264,7 +265,6 @@ class _SalesRecordPageState extends State<SalesRecordPage> {
                         title: Text(record['mobileNumber'] != null && record['mobileNumber'].isNotEmpty ? 'Mobile: ${record['mobileNumber']}' : 'Mobile: N/A'),
                         subtitle: Text('Gst No: ${record['gstNo'] ?? 'N/A'}'),
                       ),
-                      // Example of showing all items in the sale
                       if (record['items'] != null)
                         ...ListTile.divideTiles(
                           context: context,

@@ -47,7 +47,7 @@ class QuickBillApp extends StatelessWidget {
         '/shopManagement': (context) => ShopManagementPage(),
         '/stockManagement': (context) => StockManagementPage(),
         '/billGeneration': (context) => BillGenerationPage(),
-        '/salesRecords': (context) => SalesRecordPage(),
+        // '/salesRecords': (context) => SalesRecordPage(),
         '/modify': (context) => ItemForm(),
         '/login': (context) => LoginPage(),
         '/signup': (context) => SignUpPage(),

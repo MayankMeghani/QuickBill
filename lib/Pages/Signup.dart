@@ -78,7 +78,6 @@ class _SignUpPageState extends State<SignUpPage> {
       'userId': userId,
       'email': email,
       'isProfileComplete': false,
-      'isBiometricEnabled':false,
     });
   }
 

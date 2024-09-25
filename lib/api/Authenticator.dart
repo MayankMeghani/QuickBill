@@ -11,25 +11,16 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   Future<void> saveCredential(String email,String password) async {
-    try {
-      QuerySnapshot shopQuery = await firestore
-          .collection('shops')
-          .where('email', isEqualTo: email)
-          .get(); // Fetch query result
 
-      if (shopQuery.docs.isNotEmpty) { // Check if any documents are returned
-        DocumentSnapshot shopDoc = shopQuery.docs.first; // Get the first document
+    String? currentEmail = await _storage.read(key: 'email');
 
-        bool isBiometricEnabled = shopDoc.get('isBiometricEnabled') ?? false;
-
-        final SharedPreferences prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('isBiometricEnabled', isBiometricEnabled);
-      } else {
-      print('Shop document not found for email: $email');
+    if (currentEmail != null && currentEmail != email) {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isBiometricEnabled', false);
     }
-  } catch (e) {
-  print('Error saving credential and updating biometric status: $e');
-  }
+
+    await _storage.write(key: 'email', value: email);
+    await _storage.write(key: 'password', value: password);
   }
 
   Future<void> saveCredentials() async {

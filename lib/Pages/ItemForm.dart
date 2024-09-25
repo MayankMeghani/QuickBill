@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:io';
 import 'package:provider/provider.dart';
+import 'package:quickbill/Models/Item.dart';
+import 'package:quickbill/Services/ItemServices.dart';
 import '../Providers/ShopProvider.dart';
 
 class ItemForm extends StatefulWidget {
@@ -15,12 +16,13 @@ class _ItemFormState extends State<ItemForm> {
   late TextEditingController nameController;
   late TextEditingController quantityController;
   late TextEditingController priceController;
-  File? _image;
+  File? _image =null;
   String? _imageUrl;
   final picker = ImagePicker();
   bool _isUploading = false;
   bool _isExistingItem = false;
   final _formKey = GlobalKey<FormState>();
+  ItemServices itemServices = new ItemServices();
 
   @override
   void initState() {
@@ -111,8 +113,13 @@ class _ItemFormState extends State<ItemForm> {
     });
 
     String? imageUrl = _imageUrl;
+
     if (_image != null) {
       imageUrl = await uploadImageToFirebase(_image!);
+    }
+
+    if (imageUrl == null) {
+      imageUrl = '';
     }
 
     final shopId = Provider.of<ShopProvider>(context, listen: false).shopData?['userId'];
@@ -120,24 +127,18 @@ class _ItemFormState extends State<ItemForm> {
     final String? itemId = args?['id'];
 
     try {
-      final itemData = {
-        'name': nameController.text,
-        'quantity': int.parse(quantityController.text),
-        'price': double.parse(priceController.text),
-        'imageUrl': imageUrl,
-        'shopId': shopId,
-      };
+      final itemData = Item(
+        name: nameController.text,
+        imageUrl: imageUrl,
+        quantity: int.parse(quantityController.text),
+        price: double.parse(priceController.text),
+        shopId: shopId,
+      );
 
       if (_isExistingItem && itemId != null) {
-        await FirebaseFirestore.instance.collection('items').doc(itemId).update(itemData);
-
-        } else {
-        final itemRef = await FirebaseFirestore.instance.collection('items').add(itemData);
-
-        final shopRef = FirebaseFirestore.instance.collection('shops').doc(shopId);
-        await shopRef.update({
-          'itemIds': FieldValue.arrayUnion([itemRef.id])
-        });
+        await itemServices.updateItem(itemId,itemData);
+      } else {
+        await itemServices.AddShopItem(itemData);
       }
 
       setState(() {
@@ -154,6 +155,7 @@ class _ItemFormState extends State<ItemForm> {
       );
     }
   }
+
 
   Widget _buildImagePreview() {
     if (_image != null) {
